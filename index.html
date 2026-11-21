@@ -1,242 +1,973 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<title>cogie0806迷路ゲーム</title>
-<link rel="icon" href="アイコン.png" type="image/png">
-<style>
-  body {
-    text-align: center;
-    font-family: sans-serif;
-    background-color: #f0f0f0;
-  }
-  .status-board {
-    display: flex;
-    justify-content: center;
-    gap: 20px;
-    background-color: #fff;
-    padding: 12px 24px;
-    border-radius: 8px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    max-width: 450px;
-    margin: 10px auto;
-    font-size: 18px;
-    font-weight: bold;
-  }
-  .status-item span {
-    color: #e74c3c;
-    font-size: 22px;
-  }
-  canvas {
-    background-color: #ffffff;
-    border: 4px solid #333;
-    margin-top: 10px;
-    display: block;
-    margin-left: auto;
-    margin-right: auto;
-  }
-  .controls {
-    margin-top: 15px;
-    display: flex;
-    justify-content: center;
-    gap: 10px;
-  }
-  button {
-    padding: 10px 20px;
-    font-size: 16px;
-    cursor: pointer;
-    background-color: #3498db;
-    color: white;
-    border: none;
-    border-radius: 5px;
-  }
-  button:hover {
-    background-color: #2980b9;
-  }
-  button.reset-btn {
-    background-color: #95a5a6;
-  }
-  button.reset-btn:hover {
-    background-color: #7f8c8d;
-  }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MAZE LAB - 迷路ゲーム & アルゴリズム可視化</title>
+    <link rel="icon" href="ファビコン.png" type="image/png">
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Tone.js for procedural sound effects -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <!-- Google Fonts: Inter & JetBrains Mono & Noto Sans JP -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=JetBrains+Mono:wght@500;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <style>
+        /* カスタムフォント設定と基本スタイル */
+        body {
+            font-family: 'Inter', 'Noto Sans JP', sans-serif;
+            background-color: #090d16;
+            color: #f8fafc;
+            overscroll-behavior: none;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .font-mono-num {
+            font-family: 'JetBrains Mono', monospace;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* キャンバスコンテナのレスポンシブ調整 */
+        #canvas-wrapper {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            max-width: 580px;
+            max-height: 62vh;
+            margin: 0 auto;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            border-radius: 1rem;
+            box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.7), 0 0 25px rgba(56, 189, 248, 0.12);
+            touch-action: none; /* スワイプ操作時のブラウザスクロールを無効化 */
+        }
+
+        /* ゲームボタンの立体的なスタイル */
+        .btn-game {
+            transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 0 rgba(0, 0, 0, 0.35);
+        }
+        .btn-game:active:not(:disabled) {
+            transform: translateY(3px);
+            box-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+        }
+        .btn-game:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* D-Pad ボタンのホバー＆アクティブエフェクト */
+        .dpad-btn {
+            background: linear-gradient(145deg, #1e293b, #0f172a);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            transition: transform 0.08s ease, background 0.15s ease;
+        }
+        .dpad-btn:active {
+            transform: scale(0.92);
+            background: #38bdf8;
+            color: #090d16;
+            border-color: #7dd3fc;
+        }
+
+        /* カスタムスクロールバー */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 3px;
+        }
+    </style>
 </head>
-<body>
+<body class="min-h-screen flex flex-col justify-between bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950">
 
-<h1>cogie0806迷路ゲーム</h1>
+    <!-- ヘッダーナビゲーション -->
+    <header class="w-full border-b border-slate-800/80 bg-slate-950/70 backdrop-blur-md sticky top-0 z-20">
+        <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+                <!-- ロゴアイコン (SVG) -->
+                <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-sky-400 to-indigo-600 flex items-center justify-center shadow-lg shadow-sky-500/20">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 3h18v18H3V3zm4 0v6h4V5h6v6h-4v4h4v6M7 13v4h4" />
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-lg sm:text-xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-sky-300 via-cyan-200 to-indigo-300">
+                        MAZE LAB
+                    </h1>
+                    <p class="text-[11px] text-slate-400 hidden sm:block">迷路生成 & 最短経路探索シミュレーター</p>
+                </div>
+            </div>
 
-<div class="status-board">
-  <div class="status-item">第 <span id="stageDisplay">1</span> 問</div>
-  <div class="status-item">今回: <span id="currentScoreDisplay">0</span> 点</div>
-  <div class="status-item">最高: <span id="highScoreDisplay">0</span> 点</div>
-</div>
+            <!-- ステータスバー (タイム・歩数・サウンド) -->
+            <div class="flex items-center gap-2 sm:gap-4">
+                <div class="flex items-center gap-3 bg-slate-900/90 border border-slate-800 px-3 py-1.5 rounded-xl">
+                    <div class="text-center">
+                        <span class="block text-[10px] uppercase tracking-wider text-slate-400">TIME</span>
+                        <span id="timer-display" class="font-mono-num text-sm sm:text-base font-bold text-sky-400">00:00.0</span>
+                    </div>
+                    <div class="w-px h-6 bg-slate-800"></div>
+                    <div class="text-center">
+                        <span class="block text-[10px] uppercase tracking-wider text-slate-400">STEPS</span>
+                        <span id="steps-display" class="font-mono-num text-sm sm:text-base font-bold text-emerald-400">0</span>
+                    </div>
+                </div>
 
-<canvas id="gameCanvas" width="450" height="450"></canvas>
+                <!-- サウンド切り替えボタン -->
+                <button id="sound-toggle" aria-label="サウンド切り替え" class="p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700 transition">
+                    <svg id="icon-sound-on" class="w-5 h-5 text-sky-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                    </svg>
+                    <svg id="icon-sound-off" class="w-5 h-5 text-slate-500 hidden" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15zM17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </header>
 
-<div class="controls">
-  <button onclick="skipMaze()">別の迷路にする</button>
-  <button class="reset-btn" onclick="resetAll()">記録をリセット</button>
-</div>
+    <!-- メインコンテンツエリア -->
+    <main class="flex-1 w-full max-w-5xl mx-auto px-4 py-4 flex flex-col lg:flex-row items-center justify-center gap-6">
+        
+        <!-- 左側/上部: 迷路キャンバスエリア -->
+        <div class="w-full lg:w-3/5 flex flex-col items-center">
+            <div id="canvas-wrapper" class="flex items-center justify-center">
+                <canvas id="maze-canvas"></canvas>
 
-<script>
-  const canvas = document.getElementById("gameCanvas");
-  const ctx = canvas.getContext("2d");
+                <!-- クリア時のオーバーレイメッセージボックス (alert()の代替) -->
+                <div id="victory-overlay" class="hidden absolute inset-0 bg-slate-950/85 backdrop-blur-sm rounded-2xl flex flex-col items-center justify-center p-6 text-center z-10 border border-sky-500/30 transition-opacity duration-300">
+                    <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-amber-400 to-yellow-300 flex items-center justify-center mb-3 shadow-lg shadow-amber-500/30 animate-bounce">
+                        <svg class="w-9 h-9 text-slate-950" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 2l2.9 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.1-1.01L12 2z"/>
+                        </svg>
+                    </div>
+                    <h2 class="text-2xl sm:text-3xl font-extrabold text-white mb-1">GOAL CLEAR!</h2>
+                    <p id="victory-subtitle" class="text-sm text-sky-300 mb-4">見事迷路を脱出しました！</p>
+                    
+                    <div class="grid grid-cols-3 gap-2 w-full max-w-xs bg-slate-900/90 border border-slate-800 rounded-xl p-3 mb-5">
+                        <div>
+                            <div class="text-[10px] text-slate-400">クリア時間</div>
+                            <div id="res-time" class="font-mono-num text-sm sm:text-base font-bold text-sky-400">00:00.0</div>
+                        </div>
+                        <div class="border-x border-slate-800">
+                            <div class="text-[10px] text-slate-400">あなたの歩数</div>
+                            <div id="res-steps" class="font-mono-num text-sm sm:text-base font-bold text-emerald-400">0</div>
+                        </div>
+                        <div>
+                            <div class="text-[10px] text-slate-400">最短歩数</div>
+                            <div id="res-optimal" class="font-mono-num text-sm sm:text-base font-bold text-amber-400">0</div>
+                        </div>
+                    </div>
 
-  const cols = 15;
-  const rows = 15;
-  const tileSize = canvas.width / cols;
+                    <button id="btn-next-maze" class="btn-game px-6 py-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-sm sm:text-base tracking-wide shadow-lg">
+                        次の迷路へ進む →
+                    </button>
+                </div>
+            </div>
 
-  let map = [];
-  let player = { x: 1, y: 1 };
+            <!-- 操作ガイド (PC/スマホ共通) -->
+            <div class="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-slate-400">
+                <span class="flex items-center gap-1">
+                    <kbd class="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-slate-300 font-mono">↑↓←→</kbd>
+                    <span>または</span>
+                    <kbd class="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-slate-300 font-mono">WASD</kbd>
+                    <span>で移動</span>
+                </span>
+                <span class="hidden sm:inline text-slate-600">|</span>
+                <span>スマホは画面スワイプまたは下の十字キーで操作</span>
+            </div>
+        </div>
 
-  // スコアとステージの管理変数
-  let stageCount = 1;
-  let currentScore = 0;
-  let highScore = localStorage.getItem("mazeHighScore") ? parseInt(localStorage.getItem("mazeHighScore")) : 0;
-  let startTime = 0;
+        <!-- 右側/下部: コントロールパネル & タッチパッド -->
+        <div class="w-full lg:w-2/5 flex flex-col gap-4 max-w-md">
+            
+            <!-- 設定＆アクションカード -->
+            <div class="bg-slate-900/80 border border-slate-800/90 rounded-2xl p-4 shadow-xl">
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-xs font-bold uppercase tracking-wider text-slate-400">迷路設定 & アクション</span>
+                    <span id="status-badge" class="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-sky-500/15 text-sky-400 border border-sky-500/30">
+                        プレイ中
+                    </span>
+                </div>
 
-  // 画面上の数値表示を更新する関数
-  function updateBoard() {
-    document.getElementById("stageDisplay").textContent = stageCount;
-    document.getElementById("currentScoreDisplay").textContent = currentScore;
-    document.getElementById("highScoreDisplay").textContent = highScore;
-  }
+                <!-- 難易度（サイズ）選択 & 生成アルゴリズム -->
+                <div class="grid grid-cols-2 gap-3 mb-4">
+                    <div>
+                        <label for="difficulty-select" class="block text-xs text-slate-400 mb-1">サイズ (難易度)</label>
+                        <select id="difficulty-select" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-sky-500">
+                            <option value="11">11 × 11 (初級)</option>
+                            <option value="17" selected>17 × 17 (中級)</option>
+                            <option value="25">25 × 25 (上級)</option>
+                            <option value="35">35 × 35 (超難関)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="mode-select" class="block text-xs text-slate-400 mb-1">視界モード</label>
+                        <select id="mode-select" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-sky-500">
+                            <option value="normal" selected>通常モード (全体表示)</option>
+                            <option value="fog">暗闇モード (Fog of War)</option>
+                        </select>
+                    </div>
+                </div>
 
-  // 迷路を自動生成する関数（穴掘り法）
-  function generateMaze() {
-    map = Array.from({ length: rows }, () => Array(cols).fill(1));
+                <!-- アクションボタン群 -->
+                <div class="grid grid-cols-2 gap-2.5">
+                    <button id="btn-generate" class="btn-game col-span-2 py-2.5 px-4 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-bold text-sm flex items-center justify-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        新しい迷路を生成
+                    </button>
 
-    function dig(x, y) {
-      map[y][x] = 0;
-      const directions = [
-        { dx: 0, dy: -2 },
-        { dx: 0, dy: 2 },
-        { dx: -2, dy: 0 },
-        { dx: 2, dy: 0 }
-      ].sort(() => Math.random() - 0.5);
+                    <button id="btn-solve" class="btn-game py-2.5 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-1.5">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                        </svg>
+                        自動探索 (A*)
+                    </button>
 
-      for (let dir of directions) {
-        const nx = x + dir.dx;
-        const ny = y + dir.dy;
+                    <button id="btn-reset" class="btn-game py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold text-xs sm:text-sm flex items-center justify-center gap-1.5">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                        </svg>
+                        スタートに戻る
+                    </button>
+                </div>
 
-        if (nx > 0 && nx < cols - 1 && ny > 0 && ny < rows - 1 && map[ny][nx] === 1) {
-          map[y + dir.dy / 2][x + dir.dx / 2] = 0;
-          dig(nx, ny);
-        }
-      }
-    }
+                <!-- 凡例 (Legend) -->
+                <div class="mt-4 pt-3 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400">
+                    <div class="flex items-center gap-1.5">
+                        <span class="w-3 h-3 rounded-full bg-sky-400 inline-block shadow shadow-sky-400/50"></span>
+                        <span>プレイヤー</span>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <span class="w-3 h-3 rounded bg-rose-500 inline-block shadow shadow-rose-500/50"></span>
+                        <span>ゴール</span>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <span class="w-3 h-3 rounded bg-indigo-500/40 border border-indigo-400 inline-block"></span>
+                        <span>AI探索済み</span>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <span class="w-3 h-3 rounded bg-amber-400 inline-block"></span>
+                        <span>最短ルート</span>
+                    </div>
+                </div>
+            </div>
 
-    dig(1, 1);
-    map[rows - 2][cols - 2] = 2; // ゴール
-  }
+            <!-- モバイル・タブレット向け十字キー (D-Pad) -->
+            <div class="bg-slate-900/60 border border-slate-800/70 rounded-2xl p-3 flex items-center justify-center lg:mt-1">
+                <div class="grid grid-cols-3 gap-2 w-44 h-44">
+                    <div></div>
+                    <button id="dpad-up" aria-label="上へ移動" class="dpad-btn rounded-xl flex items-center justify-center text-slate-200">
+                        <svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7" />
+                        </svg>
+                    </button>
+                    <div></div>
 
-  // ステージの開始処理
-  function startStage() {
-    player = { x: 1, y: 1 };
-    generateMaze();
-    updateBoard();
-    draw();
-    startTime = Date.now(); // スタート時間を記録
-  }
+                    <button id="dpad-left" aria-label="左へ移動" class="dpad-btn rounded-xl flex items-center justify-center text-slate-200">
+                        <svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+                        </svg>
+                    </button>
+                    <div class="rounded-xl bg-slate-950/60 border border-slate-800/80 flex items-center justify-center">
+                        <div class="w-2.5 h-2.5 rounded-full bg-slate-700"></div>
+                    </div>
+                    <button id="dpad-right" aria-label="右へ移動" class="dpad-btn rounded-xl flex items-center justify-center text-slate-200">
+                        <svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                        </svg>
+                    </button>
 
-  // 別の迷路に変える（ステージ数やスコアは維持）
-  function skipMaze() {
-    startStage();
-  }
+                    <div></div>
+                    <button id="dpad-down" aria-label="下へ移動" class="dpad-btn rounded-xl flex items-center justify-center text-slate-200">
+                        <svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </button>
+                    <div></div>
+                </div>
+            </div>
 
-  // 最初からやり直す（最高得点は残し、今回分をリセット）
-  function resetAll() {
-    if (confirm("現在の進行状況（第1問から・今回スコア0点）をリセットしますか？\n※最高得点は残ります。")) {
-      stageCount = 1;
-      currentScore = 0;
-      startStage();
-    }
-  }
+        </div>
+    </main>
 
-  // 画面を描画する処理
-  function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    <!-- アプリケーションロジック -->
+    <script>
+        /**
+         * MAZE LAB - 迷路生成・ゲームプレイ・A*最短経路探索ビジュアライザー
+         */
+        (() => {
+            // --- DOM要素の取得 ---
+            const canvas = document.getElementById('maze-canvas');
+            const ctx = canvas.getContext('2d');
+            const canvasWrapper = document.getElementById('canvas-wrapper');
 
-    for (let y = 0; y < rows; y++) {
-      for (let x = 0; x < cols; x++) {
-        if (map[y][x] === 1) {
-          ctx.fillStyle = "#333";
-          ctx.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
-        } else if (map[y][x] === 2) {
-          ctx.fillStyle = "#2ecc71";
-          ctx.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
-        }
-      }
-    }
+            const timerDisplay = document.getElementById('timer-display');
+            const stepsDisplay = document.getElementById('steps-display');
+            const statusBadge = document.getElementById('status-badge');
 
-    ctx.fillStyle = "#e74c3c";
-    ctx.beginPath();
-    ctx.arc(
-      player.x * tileSize + tileSize / 2,
-      player.y * tileSize + tileSize / 2,
-      tileSize / 3,
-      0,
-      Math.PI * 2
-    );
-    ctx.fill();
-  }
+            const difficultySelect = document.getElementById('difficulty-select');
+            const modeSelect = document.getElementById('mode-select');
+            const btnGenerate = document.getElementById('btn-generate');
+            const btnSolve = document.getElementById('btn-solve');
+            const btnReset = document.getElementById('btn-reset');
+            const btnNextMaze = document.getElementById('btn-next-maze');
+            const soundToggle = document.getElementById('sound-toggle');
 
-  // キーボード操作の処理
-  document.addEventListener("keydown", function(e) {
-    if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) {
-      e.preventDefault();
-    }
+            const victoryOverlay = document.getElementById('victory-overlay');
+            const victorySubtitle = document.getElementById('victory-subtitle');
+            const resTime = document.getElementById('res-time');
+            const resSteps = document.getElementById('res-steps');
+            const resOptimal = document.getElementById('res-optimal');
 
-    let nextX = player.x;
-    let nextY = player.y;
+            // --- ゲーム状態管理 ---
+            const CELL_WALL = 1;
+            const CELL_PATH = 0;
 
-    if (e.key === "ArrowUp") nextY--;
-    if (e.key === "ArrowDown") nextY++;
-    if (e.key === "ArrowLeft") nextX--;
-    if (e.key === "ArrowRight") nextX++;
+            let gridSize = parseInt(difficultySelect.value, 10); // 必ず奇数
+            let maze = [];
+            let startPos = { x: 1, y: 1 };
+            let goalPos = { x: gridSize - 2, y: gridSize - 2 };
+            let playerPos = { x: 1, y: 1 };
+            let renderPlayerPos = { x: 1, y: 1 }; // スムーズ補間用座標
 
-    if (map[nextY] && map[nextY][nextX] !== 1) {
-      player.x = nextX;
-      player.y = nextY;
-      draw();
+            let playerTrail = [];     // プレイヤーが通った軌跡
+            let exploredCells = [];   // A*探索が訪問したセル
+            let solutionPath = [];    // 最短経路
 
-      // ゴール(2)に到達したか判定
-      if (map[player.y][player.x] === 2) {
-        // クリア時間（秒）を計算してスコアを算出
-        const elapsedSeconds = (Date.now() - startTime) / 1000;
-        // 基本点100点 ＋ 早くクリアするほどボーナス（30秒以内なら最大300点追加）
-        const timeBonus = Math.max(0, Math.floor((30 - elapsedSeconds) * 10));
-        const earnedScore = 100 + timeBonus;
+            let isFogMode = false;
+            let isSolved = false;
+            let isAutoSolving = false;
+            let solveAnimationId = null;
 
-        currentScore += earnedScore;
+            // タイマー＆歩数
+            let steps = 0;
+            let startTime = null;
+            let elapsedTime = 0;
+            let timerInterval = null;
 
-        // 最高得点の更新チェック
-        let isNewRecord = false;
-        if (currentScore > highScore) {
-          highScore = currentScore;
-          localStorage.setItem("mazeHighScore", highScore);
-          isNewRecord = true;
-        }
+            // サウンド管理 (Tone.js)
+            let soundEnabled = true;
+            let synth = null;
 
-        updateBoard();
+            /**
+             * Tone.js シンセサイザーの初期化（ユーザー操作時に安全に起動）
+             */
+            function initAudio() {
+                if (!synth && typeof Tone !== 'undefined') {
+                    try {
+                        synth = new Tone.PolySynth(Tone.Synth, {
+                            oscillator: { type: 'triangle' },
+                            envelope: { attack: 0.005, decay: 0.1, sustain: 0.05, release: 0.2 }
+                        }).toDestination();
+                        synth.volume.value = -10;
+                    } catch (e) {
+                        console.warn('Audio initialization skipped:', e);
+                    }
+                }
+            }
 
-        setTimeout(() => {
-          let message = `第 ${stageCount} 問クリア！（タイム: ${elapsedSeconds.toFixed(1)}秒）\n獲得スコア: +${earnedScore} 点`;
-          if (isNewRecord) {
-            message += "\n★ 最高得点を更新しました！ ★";
-          }
-          alert(message);
+            function playSound(type) {
+                if (!soundEnabled) return;
+                initAudio();
+                if (!synth) return;
 
-          stageCount++; // 次の迷路へカウントアップ
-          startStage();
-        }, 50);
-      }
-    }
-  });
+                try {
+                    if (Tone.context.state !== 'running') {
+                        Tone.context.resume();
+                    }
+                    const now = Tone.now();
+                    if (type === 'move') {
+                        synth.triggerAttackRelease('C5', '32n', now);
+                    } else if (type === 'wall') {
+                        synth.triggerAttackRelease('G2', '32n', now);
+                    } else if (type === 'generate') {
+                        synth.triggerAttackRelease(['C4', 'E4', 'G4'], '16n', now);
+                    } else if (type === 'win') {
+                        synth.triggerAttackRelease('C5', '16n', now);
+                        synth.triggerAttackRelease('E5', '16n', now + 0.08);
+                        synth.triggerAttackRelease('G5', '16n', now + 0.16);
+                        synth.triggerAttackRelease('C6', '4n', now + 0.24);
+                    }
+                } catch (e) {
+                    // 音声再生エラーは無視してゲーム進行を妨げない
+                }
+            }
 
-  // 初回スタート
-  startStage();
-</script>
+            // --- 迷路生成アルゴリズム (穴掘り法 / Recursive Backtracker) ---
+            function generateMaze(size) {
+                // 全て壁(1)で初期化
+                const grid = Array.from({ length: size }, () => Array(size).fill(CELL_WALL));
 
+                // 配列シャッフル関数
+                function shuffle(array) {
+                    for (let i = array.length - 1; i > 0; i--) {
+                        const j = Math.floor(Math.random() * (i + 1));
+                        [array[i], array[j]] = [array[j], array[i]];
+                    }
+                    return array;
+                }
+
+                // 再帰的穴掘り（スタック実装でスタックオーバーフロー防止）
+                const stack = [{ x: 1, y: 1 }];
+                grid[1][1] = CELL_PATH;
+
+                const directions = [
+                    { dx: 0, dy: -2 },
+                    { dx: 2, dy: 0 },
+                    { dx: 0, dy: 2 },
+                    { dx: -2, dy: 0 }
+                ];
+
+                while (stack.length > 0) {
+                    const current = stack[stack.length - 1];
+                    const shuffledDirs = shuffle([...directions]);
+                    let carved = false;
+
+                    for (const dir of shuffledDirs) {
+                        const nx = current.x + dir.dx;
+                        const ny = current.y + dir.dy;
+
+                        if (nx > 0 && nx < size - 1 && ny > 0 && ny < size - 1 && grid[ny][nx] === CELL_WALL) {
+                            // 間の壁を壊す
+                            grid[current.y + dir.dy / 2][current.x + dir.dx / 2] = CELL_PATH;
+                            grid[ny][nx] = CELL_PATH;
+                            stack.push({ x: nx, y: ny });
+                            carved = true;
+                            break;
+                        }
+                    }
+
+                    if (!carved) {
+                        stack.pop();
+                    }
+                }
+
+                return grid;
+            }
+
+            // --- A* (A-Star) 最短経路探索アルゴリズム ---
+            function computeAStar(start, goal) {
+                const openSet = [{
+                    x: start.x,
+                    y: start.y,
+                    g: 0,
+                    f: Math.abs(goal.x - start.x) + Math.abs(goal.y - start.y),
+                    parent: null
+                }];
+                const closedSet = new Set();
+                const visitedOrder = [];
+
+                const dirs = [
+                    { dx: 0, dy: -1 },
+                    { dx: 1, dy: 0 },
+                    { dx: 0, dy: 1 },
+                    { dx: -1, dy: 0 }
+                ];
+
+                while (openSet.length > 0) {
+                    // f値が最小のノードを取得
+                    openSet.sort((a, b) => a.f - b.f);
+                    const current = openSet.shift();
+                    const key = `${current.x},${current.y}`;
+
+                    if (closedSet.has(key)) continue;
+                    closedSet.add(key);
+                    visitedOrder.push({ x: current.x, y: current.y });
+
+                    // ゴール到達
+                    if (current.x === goal.x && current.y === goal.y) {
+                        const path = [];
+                        let curr = current;
+                        while (curr) {
+                            path.unshift({ x: curr.x, y: curr.y });
+                            curr = curr.parent;
+                        }
+                        return { visitedOrder, path };
+                    }
+
+                    for (const d of dirs) {
+                        const nx = current.x + d.dx;
+                        const ny = current.y + d.dy;
+                        const nKey = `${nx},${ny}`;
+
+                        if (
+                            nx >= 0 && nx < gridSize &&
+                            ny >= 0 && ny < gridSize &&
+                            maze[ny][nx] === CELL_PATH &&
+                            !closedSet.has(nKey)
+                        ) {
+                            const gScore = current.g + 1;
+                            const hScore = Math.abs(goal.x - nx) + Math.abs(goal.y - ny);
+                            openSet.push({
+                                x: nx,
+                                y: ny,
+                                g: gScore,
+                                f: gScore + hScore,
+                                parent: current
+                            });
+                        }
+                    }
+                }
+                return { visitedOrder, path: [] };
+            }
+
+            // --- タイマー制御 ---
+            function startTimer() {
+                if (timerInterval) return;
+                startTime = Date.now() - elapsedTime;
+                timerInterval = setInterval(() => {
+                    elapsedTime = Date.now() - startTime;
+                    timerDisplay.textContent = formatTime(elapsedTime);
+                }, 50);
+            }
+
+            function stopTimer() {
+                if (timerInterval) {
+                    clearInterval(timerInterval);
+                    timerInterval = null;
+                }
+            }
+
+            function resetTimer() {
+                stopTimer();
+                elapsedTime = 0;
+                startTime = null;
+                timerDisplay.textContent = '00:00.0';
+            }
+
+            function formatTime(ms) {
+                const totalSeconds = ms / 1000;
+                const mins = Math.floor(totalSeconds / 60);
+                const secs = Math.floor(totalSeconds % 60);
+                const tenths = Math.floor((ms % 1000) / 100);
+                return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}.${tenths}`;
+            }
+
+            // --- ゲーム初期化 & リセット ---
+            function initNewGame() {
+                cancelAutoSolve();
+                victoryOverlay.classList.add('hidden');
+
+                gridSize = parseInt(difficultySelect.value, 10);
+                isFogMode = modeSelect.value === 'fog';
+                maze = generateMaze(gridSize);
+
+                startPos = { x: 1, y: 1 };
+                goalPos = { x: gridSize - 2, y: gridSize - 2 };
+
+                resetPlayerState();
+                playSound('generate');
+            }
+
+            function resetPlayerState() {
+                cancelAutoSolve();
+                victoryOverlay.classList.add('hidden');
+
+                playerPos = { ...startPos };
+                renderPlayerPos = { ...startPos };
+                playerTrail = [{ ...startPos }];
+                exploredCells = [];
+                solutionPath = [];
+                isSolved = false;
+                steps = 0;
+                stepsDisplay.textContent = '0';
+
+                resetTimer();
+                updateStatusBadge('プレイ中', 'sky');
+                btnSolve.disabled = false;
+            }
+
+            function updateStatusBadge(text, color) {
+                statusBadge.textContent = text;
+                statusBadge.className = 'text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ';
+                if (color === 'sky') {
+                    statusBadge.className += 'bg-sky-500/15 text-sky-400 border-sky-500/30';
+                } else if (color === 'amber') {
+                    statusBadge.className += 'bg-amber-500/15 text-amber-400 border-amber-500/30';
+                } else if (color === 'emerald') {
+                    statusBadge.className += 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30';
+                }
+            }
+
+            // --- プレイヤー移動処理 ---
+            function movePlayer(dx, dy) {
+                if (isSolved || isAutoSolving) return;
+
+                const nx = playerPos.x + dx;
+                const ny = playerPos.y + dy;
+
+                // 壁・範囲外判定
+                if (nx < 0 || nx >= gridSize || ny < 0 || ny >= gridSize || maze[ny][nx] === CELL_WALL) {
+                    playSound('wall');
+                    return;
+                }
+
+                // 初回移動時にタイマースタート
+                if (steps === 0 && !timerInterval) {
+                    startTimer();
+                }
+
+                playerPos = { x: nx, y: ny };
+                steps++;
+                stepsDisplay.textContent = steps;
+                playSound('move');
+
+                // 軌跡の更新（1つ前のマスに戻る場合は軌跡を縮める）
+                if (playerTrail.length >= 2) {
+                    const prev = playerTrail[playerTrail.length - 2];
+                    if (prev.x === nx && prev.y === ny) {
+                        playerTrail.pop();
+                    } else {
+                        playerTrail.push({ x: nx, y: ny });
+                    }
+                } else {
+                    playerTrail.push({ x: nx, y: ny });
+                }
+
+                // ゴール判定
+                if (nx === goalPos.x && ny === goalPos.y) {
+                    handleGoalReached(false);
+                }
+            }
+
+            // --- ゴール到達時の処理 ---
+            function handleGoalReached(byAI) {
+                isSolved = true;
+                stopTimer();
+                btnSolve.disabled = true;
+
+                // 最短経路を計算して比較表示
+                const { path } = computeAStar(startPos, goalPos);
+                solutionPath = path;
+                const optimalSteps = Math.max(0, path.length - 1);
+
+                resTime.textContent = formatTime(elapsedTime);
+                resSteps.textContent = byAI ? `${optimalSteps} (AI)` : steps;
+                resOptimal.textContent = optimalSteps;
+
+                if (byAI) {
+                    victorySubtitle.textContent = 'A*アルゴリズムが最短経路を発見しました！';
+                    updateStatusBadge('AI探索完了', 'amber');
+                } else {
+                    const isPerfect = steps === optimalSteps;
+                    victorySubtitle.textContent = isPerfect
+                        ? 'パーフェクト！最短歩数でのクリアです！'
+                        : 'おめでとうございます！迷路をクリアしました！';
+                    updateStatusBadge('クリア！', 'emerald');
+                    playSound('win');
+                }
+
+                setTimeout(() => {
+                    victoryOverlay.classList.remove('hidden');
+                }, 350);
+            }
+
+            // --- AI自動探索アニメーション ---
+            function startAutoSolve() {
+                if (isAutoSolving || isSolved) return;
+
+                isAutoSolving = true;
+                btnSolve.disabled = true;
+                stopTimer();
+                updateStatusBadge('A* 探索中...', 'amber');
+
+                // 現在位置からゴールまでの最短経路をA*で計算
+                const { visitedOrder, path } = computeAStar(playerPos, goalPos);
+                exploredCells = [];
+                solutionPath = [];
+
+                let visitIdx = 0;
+                // 迷路サイズに応じてアニメーション速度を調整
+                const batchSize = Math.max(1, Math.floor(gridSize / 8));
+
+                function stepExplore() {
+                    if (!isAutoSolving) return;
+
+                    if (visitIdx < visitedOrder.length) {
+                        for (let i = 0; i < batchSize && visitIdx < visitedOrder.length; i++) {
+                            exploredCells.push(visitedOrder[visitIdx++]);
+                        }
+                        solveAnimationId = requestAnimationFrame(stepExplore);
+                    } else {
+                        // 探索完了後、最短経路を順番に描画
+                        let pathIdx = 0;
+                        function stepPath() {
+                            if (!isAutoSolving) return;
+                            if (pathIdx < path.length) {
+                                solutionPath.push(path[pathIdx]);
+                                playerPos = { ...path[pathIdx] };
+                                pathIdx++;
+                                solveAnimationId = requestAnimationFrame(stepPath);
+                            } else {
+                                isAutoSolving = false;
+                                handleGoalReached(true);
+                            }
+                        }
+                        solveAnimationId = requestAnimationFrame(stepPath);
+                    }
+                }
+
+                solveAnimationId = requestAnimationFrame(stepExplore);
+            }
+
+            function cancelAutoSolve() {
+                isAutoSolving = false;
+                if (solveAnimationId) {
+                    cancelAnimationFrame(solveAnimationId);
+                    solveAnimationId = null;
+                }
+            }
+
+            // --- キャンバス描画処理 ---
+            function resizeCanvas() {
+                const rect = canvasWrapper.getBoundingClientRect();
+                const dpr = window.devicePixelRatio || 1;
+                canvas.width = rect.width * dpr;
+                canvas.height = rect.height * dpr;
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            }
+
+            function render() {
+                const width = canvasWrapper.clientWidth;
+                const height = canvasWrapper.clientHeight;
+                const cellSize = width / gridSize;
+
+                // プレイヤー描画位置のスムーズ補間 (Lerp)
+                renderPlayerPos.x += (playerPos.x - renderPlayerPos.x) * 0.35;
+                renderPlayerPos.y += (playerPos.y - renderPlayerPos.y) * 0.35;
+
+                // 背景クリア (通路の色)
+                ctx.fillStyle = '#0f172a';
+                ctx.fillRect(0, 0, width, height);
+
+                // 1. AI探索済みセルの描画
+                if (exploredCells.length > 0) {
+                    ctx.fillStyle = 'rgba(99, 102, 241, 0.25)';
+                    for (const cell of exploredCells) {
+                        ctx.fillRect(
+                            cell.x * cellSize + 0.5,
+                            cell.y * cellSize + 0.5,
+                            cellSize - 1,
+                            cellSize - 1
+                        );
+                    }
+                }
+
+                // 2. プレイヤーの移動軌跡 (ライン描画)
+                if (playerTrail.length > 1) {
+                    ctx.beginPath();
+                    ctx.strokeStyle = 'rgba(56, 189, 248, 0.45)';
+                    ctx.lineWidth = Math.max(2, cellSize * 0.28);
+                    ctx.lineCap = 'round';
+                    ctx.lineJoin = 'round';
+                    playerTrail.forEach((pt, idx) => {
+                        const cx = (pt.x + 0.5) * cellSize;
+                        const cy = (pt.y + 0.5) * cellSize;
+                        if (idx === 0) ctx.moveTo(cx, cy);
+                        else ctx.lineTo(cx, cy);
+                    });
+                    ctx.stroke();
+                }
+
+                // 3. 最短経路のハイライト描画
+                if (solutionPath.length > 1) {
+                    ctx.beginPath();
+                    ctx.strokeStyle = '#fbbf24';
+                    ctx.lineWidth = Math.max(2.5, cellSize * 0.34);
+                    ctx.lineCap = 'round';
+                    ctx.lineJoin = 'round';
+                    solutionPath.forEach((pt, idx) => {
+                        const cx = (pt.x + 0.5) * cellSize;
+                        const cy = (pt.y + 0.5) * cellSize;
+                        if (idx === 0) ctx.moveTo(cx, cy);
+                        else ctx.lineTo(cx, cy);
+                    });
+                    ctx.stroke();
+                }
+
+                // 4. 壁の描画
+                ctx.fillStyle = '#1e293b';
+                for (let y = 0; y < gridSize; y++) {
+                    for (let x = 0; x < gridSize; x++) {
+                        if (maze[y][x] === CELL_WALL) {
+                            ctx.fillRect(
+                                x * cellSize,
+                                y * cellSize,
+                                cellSize + 0.4,
+                                cellSize + 0.4
+                            );
+                        }
+                    }
+                }
+
+                // 5. スタート地点マーカー
+                const startPad = cellSize * 0.22;
+                ctx.fillStyle = 'rgba(56, 189, 248, 0.25)';
+                ctx.beginPath();
+                ctx.roundRect(
+                    startPos.x * cellSize + startPad,
+                    startPos.y * cellSize + startPad,
+                    cellSize - startPad * 2,
+                    cellSize - startPad * 2,
+                    cellSize * 0.2
+                );
+                ctx.fill();
+
+                // 6. ゴール地点マーカー (パルス発光)
+                const pulse = Math.sin(Date.now() / 220) * 0.08 + 0.92;
+                const goalPad = cellSize * 0.16;
+                const gSize = (cellSize - goalPad * 2) * pulse;
+                const gOffset = (cellSize - gSize) / 2;
+
+                ctx.save();
+                ctx.shadowColor = '#f43f5e';
+                ctx.shadowBlur = 12;
+                ctx.fillStyle = '#f43f5e';
+                ctx.beginPath();
+                ctx.roundRect(
+                    goalPos.x * cellSize + gOffset,
+                    goalPos.y * cellSize + gOffset,
+                    gSize,
+                    gSize,
+                    cellSize * 0.25
+                );
+                ctx.fill();
+                ctx.restore();
+
+                // 7. プレイヤーの描画
+                const px = (renderPlayerPos.x + 0.5) * cellSize;
+                const py = (renderPlayerPos.y + 0.5) * cellSize;
+                const radius = cellSize * 0.34;
+
+                ctx.save();
+                ctx.shadowColor = '#38bdf8';
+                ctx.shadowBlur = 14;
+                ctx.fillStyle = '#38bdf8';
+                ctx.beginPath();
+                ctx.arc(px, py, radius, 0, Math.PI * 2);
+                ctx.fill();
+
+                // プレイヤー中心のハイライト
+                ctx.fillStyle = '#e0f2fe';
+                ctx.beginPath();
+                ctx.arc(px - radius * 0.22, py - radius * 0.22, radius * 0.32, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+
+                // 8. 暗闇モード (Fog of War) の適用
+                if (isFogMode && !isSolved && !isAutoSolving) {
+                    const visionRadius = cellSize * 3.6;
+                    const grad = ctx.createRadialGradient(px, py, cellSize * 1.1, px, py, visionRadius);
+                    grad.addColorStop(0, 'rgba(9, 13, 22, 0)');
+                    grad.addColorStop(0.7, 'rgba(9, 13, 22, 0.88)');
+                    grad.addColorStop(1, 'rgba(9, 13, 22, 0.98)');
+
+                    ctx.fillStyle = grad;
+                    ctx.fillRect(0, 0, width, height);
+                }
+
+                requestAnimationFrame(render);
+            }
+
+            // --- イベントリスナー設定 ---
+
+            // キーボード操作 (矢印キー & WASD)
+            window.addEventListener('keydown', (e) => {
+                const key = e.key.toLowerCase();
+                if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'w', 'a', 's', 'd'].includes(key)) {
+                    e.preventDefault();
+                }
+                if (key === 'arrowup' || key === 'w') movePlayer(0, -1);
+                else if (key === 'arrowdown' || key === 's') movePlayer(0, 1);
+                else if (key === 'arrowleft' || key === 'a') movePlayer(-1, 0);
+                else if (key === 'arrowright' || key === 'd') movePlayer(1, 0);
+            });
+
+            // 画面上のD-Padボタン (タップ＆クリック対応)
+            const bindDpad = (id, dx, dy) => {
+                const btn = document.getElementById(id);
+                btn.addEventListener('pointerdown', (e) => {
+                    e.preventDefault();
+                    movePlayer(dx, dy);
+                });
+            };
+            bindDpad('dpad-up', 0, -1);
+            bindDpad('dpad-down', 0, 1);
+            bindDpad('dpad-left', -1, 0);
+            bindDpad('dpad-right', 1, 0);
+
+            // キャンバス上のスワイプ操作
+            let touchStartX = 0;
+            let touchStartY = 0;
+            canvas.addEventListener('touchstart', (e) => {
+                if (e.touches.length === 1) {
+                    touchStartX = e.touches[0].clientX;
+                    touchStartY = e.touches[0].clientY;
+                }
+            }, { passive: true });
+
+            canvas.addEventListener('touchend', (e) => {
+                if (e.changedTouches.length === 1) {
+                    const dx = e.changedTouches[0].clientX - touchStartX;
+                    const dy = e.changedTouches[0].clientY - touchStartY;
+                    const absX = Math.abs(dx);
+                    const absY = Math.abs(dy);
+
+                    if (Math.max(absX, absY) > 22) {
+                        if (absX > absY) {
+                            movePlayer(dx > 0 ? 1 : -1, 0);
+                        } else {
+                            movePlayer(0, dy > 0 ? 1 : -1);
+                        }
+                    }
+                }
+            }, { passive: true });
+
+            // コントロールボタン
+            btnGenerate.addEventListener('click', initNewGame);
+            btnNextMaze.addEventListener('click', initNewGame);
+            btnReset.addEventListener('click', resetPlayerState);
+            btnSolve.addEventListener('click', startAutoSolve);
+
+            difficultySelect.addEventListener('change', initNewGame);
+            modeSelect.addEventListener('change', () => {
+                isFogMode = modeSelect.value === 'fog';
+            });
+
+            // サウンド切り替え
+            soundToggle.addEventListener('click', () => {
+                soundEnabled = !soundEnabled;
+                document.getElementById('icon-sound-on').classList.toggle('hidden', !soundEnabled);
+                document.getElementById('icon-sound-off').classList.toggle('hidden', soundEnabled);
+                if (soundEnabled) initAudio();
+            });
+
+            // ウィンドウリサイズ対応
+            window.addEventListener('resize', resizeCanvas);
+
+            // 初期化実行
+            window.onload = () => {
+                resizeCanvas();
+                initNewGame();
+                requestAnimationFrame(render);
+            };
+        })();
+    </script>
 </body>
 </html>
